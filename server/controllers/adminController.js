@@ -14,7 +14,7 @@ export const getDashboard = async (req, res) => {
     const pendingBookings = await Booking.countDocuments({ status: "pending" });
     const cancelledBookings = await Booking.countDocuments({ status: "cancelled" });
 
-    // Revenue calculations
+    // Revenue calculations with fixed amounts
     const revenueData = await Payment.aggregate([
       { $match: { status: "completed" } },
       { 
@@ -203,7 +203,7 @@ export const markBookingPaid = async (req, res) => {
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
 
-    booking.advancePaid = booking.totalAmount;
+    booking.advancePaid = 20000; // Fixed full amount
     booking.paymentStatus = "fully_paid";
     booking.status = "confirmed";
 

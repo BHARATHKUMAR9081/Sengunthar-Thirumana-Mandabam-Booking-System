@@ -24,19 +24,18 @@ export const AdminProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (adminData, tokenData = null) => {
-    setAdmin(adminData);
-    setToken(tokenData);
+  const login = (adminData, tokenData) => {
+  setAdmin(adminData);
+  setToken(tokenData);
 
-    localStorage.setItem(
-      "adminAuth",
-      JSON.stringify({ admin: adminData, token: tokenData })
-    );
+  localStorage.setItem(
+    "adminAuth",
+    JSON.stringify({ admin: adminData, token: tokenData })
+  );
 
-    if (tokenData) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${tokenData}`;
-    }
-  };
+  axios.defaults.headers.common["Authorization"] = `Bearer ${tokenData}`;
+};
+
 
   const logout = () => {
     setAdmin(null);

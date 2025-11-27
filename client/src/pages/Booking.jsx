@@ -200,18 +200,15 @@ const Booking = () => {
             </div>
 
             <div className="form-group">
-              <label>Advance Payment (Minimum ₹1000)</label>
+              <label>Advance Payment (Minimum ₹5000)</label>
               <input
                 type="number"
-                value={advanceAmount}
-                onChange={(e) => setAdvanceAmount(e.target.value)}
-                min="1000"
-                max="20000"
-                step="500"
-                required
+                value={5000}
+                readOnly
               />
+
               <small style={{ color: '#666' }}>
-                Pay at least ₹1000 to confirm your booking. Remaining amount can be paid later.
+                Pay ₹5000 to confirm your booking. Remaining amount can be paid later.
               </small>
             </div>
 
@@ -233,11 +230,11 @@ const Booking = () => {
               </div>
               <div className="summary-item">
                 <span>Advance Payment:</span>
-                <span>₹{advanceAmount}</span>
+                <span>₹5000</span>
               </div>
               <div className="summary-total">
                 <span>Remaining Amount:</span>
-                <span>₹{remainingAmount}</span>
+                <span>₹15000</span>
               </div>
             </div>
 
@@ -263,7 +260,7 @@ const Booking = () => {
       <div className="container">
         <h2>Select Date for Booking</h2>
         <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666' }}>
-          Choose an available date. Total: ₹20,000 (Minimum ₹1000 advance)
+          Choose an available date. Total: ₹20,000 (Minimum ₹5000 advance)
         </p>
 
         {calendarLoading ? (

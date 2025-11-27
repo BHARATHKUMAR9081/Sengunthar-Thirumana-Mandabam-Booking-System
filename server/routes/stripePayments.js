@@ -6,45 +6,41 @@ import Payment from '../models/Payment.js';
 
 const router = express.Router();
 
+// FIXED AMOUNTS
+const ADVANCE_AMOUNT = 5000;
+const REMAINING_AMOUNT = 15000;
+const TOTAL_AMOUNT = 20000;
+
 // Create payment intent
 router.post('/create-payment-intent', protect, async (req, res) => {
   try {
-    const { bookingId, amount, paymentType = 'advance' } = req.body;
+    const { bookingId, paymentType } = req.body;
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Validate payment amount
-    if (paymentType === 'advance' && amount < 1000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Advance payment must be at least ₹1000'
-      });
-    }
+    let amount = 0;
 
-    if (paymentType === 'remaining') {
-      const remainingAmount = booking.totalAmount - booking.advancePaid;
-      if (amount > remainingAmount) {
-        return res.status(400).json({
-          success: false,
-          message: `Payment amount exceeds remaining balance of ₹${remainingAmount}`
-        });
-      }
+    if (paymentType === 'advance') {
+      amount = ADVANCE_AMOUNT;
+    } else if (paymentType === 'remaining') {
+      amount = REMAINING_AMOUNT;
+    } else if (paymentType === 'full') {
+      amount = TOTAL_AMOUNT;
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid payment type' });
     }
 
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Convert to cents/paise
-      currency: 'usd', // Using USD for Stripe test mode
+      amount: amount * 100,
+      currency: 'usd',
       metadata: {
         bookingId: bookingId.toString(),
         userId: req.user.id.toString(),
-        paymentType: paymentType
+        paymentType
       },
       automatic_payment_methods: {
         enabled: true,
@@ -58,11 +54,8 @@ router.post('/create-payment-intent', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Stripe payment intent error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('Stripe error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -71,43 +64,34 @@ router.post('/confirm-payment', protect, async (req, res) => {
   try {
     const { paymentIntentId, bookingId } = req.body;
 
-    // Retrieve payment intent from Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
     if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({
-        success: false,
-        message: 'Payment not completed'
-      });
+      return res.status(400).json({ success: false, message: 'Payment not completed' });
     }
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
     const amountPaid = paymentIntent.amount / 100;
-    const newAdvancePaid = booking.advancePaid + amountPaid;
 
-    // Update booking payment status
-    booking.advancePaid = newAdvancePaid;
+    // Update booking payment
+    booking.advancePaid += amountPaid;
 
-    if (newAdvancePaid >= 1000 && booking.status === 'pending') {
+    if (booking.advancePaid >= ADVANCE_AMOUNT) {
       booking.status = 'confirmed';
       booking.paymentStatus = 'advance_paid';
     }
 
-    if (newAdvancePaid === booking.totalAmount) {
+    if (booking.advancePaid >= TOTAL_AMOUNT) {
       booking.paymentStatus = 'fully_paid';
     }
 
     await booking.save();
 
-    // Create payment record
-    const payment = new Payment({
+    // Save payment record
+    await Payment.create({
       booking: bookingId,
       user: req.user.id,
       amount: amountPaid,
@@ -118,37 +102,16 @@ router.post('/confirm-payment', protect, async (req, res) => {
       stripePaymentIntentId: paymentIntent.id
     });
 
-    await payment.save();
-
     res.json({
       success: true,
-      message: 'Payment confirmed successfully',
+      message: 'Payment successful',
       booking,
       amountPaid
     });
 
   } catch (error) {
-    console.error('Payment confirmation error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Get payment methods (for saved cards)
-router.get('/payment-methods', protect, async (req, res) => {
-  try {
-    // In a real app, you'd store customer IDs and retrieve saved payment methods
-    res.json({
-      success: true,
-      paymentMethods: []
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('Confirm Payment Error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

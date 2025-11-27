@@ -12,40 +12,32 @@ const AdminLogin = () => {
   const { login } = useAdmin();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    try {
-      // Try to call the backend API
-      const response = await axios.post('http://localhost:5000/api/admin/login', {
-        email,
-        password
-      });
+  try {
+    const response = await axios.post("http://localhost:5000/api/admin/login", {
+      email,
+      password
+    });
 
-      if (response.data.success) {
-        login(response.data.admin, response.data.token);
-        navigate("/admin/dashboard");
-      }
-
-    } catch (error) {
-      // If backend is not available, use mock login
-      if (email === 'admin@mandabam.com' && password === 'admin123') {
-        const mockAdmin = {
-          id: 'admin1',
-          name: 'Mandabam Owner',
-          email: 'admin@mandabam.com'
-        };
-        login(mockAdmin);
-        navigate('/admin/dashboard');
-      } else {
-        setError('Invalid admin credentials. Use: admin@mandabam.com / admin123');
-      }
-    } finally {
-      setLoading(false);
+    if (response.data.success) {
+      login(response.data.admin, response.data.token); // MUST HAVE TOKEN
+      navigate("/admin/dashboard");
+      return;
     }
-  };
+
+    setError("Invalid admin credentials");
+  } catch (error) {
+    console.log("LOGIN ERROR:", error.response?.data || error.message);
+    setError("Login failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div style={{ marginTop: '100px', padding: '20px' }}>

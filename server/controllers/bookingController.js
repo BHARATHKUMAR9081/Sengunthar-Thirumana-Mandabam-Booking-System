@@ -9,34 +9,12 @@ export const createBooking = async (req, res) => {
       endTime,
       eventType,
       guestCount,
-      specialRequirements,
-      advanceAmount = 0
+      specialRequirements
     } = req.body;
 
-    // Normalize date — compare full day (fix duplicate booking issue)
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
+    const totalAmount = 20000; // FIXED PACKAGE
+    const advancePaid = 0;
 
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    // Check if ANY confirmed booking exists on the same day
-    const existingBooking = await Booking.findOne({
-      date: { $gte: dayStart, $lte: dayEnd },
-      status: 'confirmed'
-    });
-
-    if (existingBooking) {
-      return res.status(400).json({
-        success: false,
-        message: 'Selected date is already booked'
-      });
-    }
-
-    // Fixed package amount
-    const totalAmount = 20000;
-
-    // Create booking with pending status
     const booking = await Booking.create({
       user: req.user.id,
       date: new Date(date),
@@ -45,93 +23,67 @@ export const createBooking = async (req, res) => {
       eventType,
       guestCount,
       totalAmount,
-      advancePaid: advanceAmount,
+      advancePaid,
       specialRequirements,
       status: 'pending',
       paymentStatus: 'pending'
     });
 
-    await booking.populate('user', 'name email phone');
-
     res.status(201).json({
       success: true,
       booking,
-      message: 'Booking created. Please pay advance to confirm.',
-      remainingAmount: totalAmount - advanceAmount
+      message: 'Booking created successfully',
+      remainingAmount: 15000
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // Make Payment
 export const makePayment = async (req, res) => {
   try {
-    const { bookingId, amount, paymentMethod = 'online' } = req.body;
-    
+    const { bookingId, amount } = req.body;
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    if (booking.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to make payment for this booking'
-      });
-    }
-
-    const newAdvancePaid = booking.advancePaid + amount;
-    const remainingAmount = booking.totalAmount - newAdvancePaid;
-
-    if (newAdvancePaid > booking.totalAmount) {
+    // Only fixed valid amounts
+    if (![5000, 15000, 20000].includes(amount)) {
       return res.status(400).json({
         success: false,
-        message: 'Payment amount exceeds remaining balance'
+        message: 'Invalid payment amount. Allowed: 5000, 15000, 20000'
       });
     }
 
-    // Update booking
-    booking.advancePaid = newAdvancePaid;
+    booking.advancePaid += amount;
 
-    // Confirm if advance >= ₹1000
-    if (newAdvancePaid >= 1000 && booking.status === 'pending') {
+    if (booking.advancePaid >= 5000) {
       booking.status = 'confirmed';
       booking.paymentStatus = 'advance_paid';
     }
 
-    // Fully paid
-    if (newAdvancePaid === booking.totalAmount) {
+    if (booking.advancePaid >= 20000) {
       booking.paymentStatus = 'fully_paid';
     }
 
     await booking.save();
-    await booking.populate('user', 'name email phone');
 
     res.json({
       success: true,
       booking,
-      message:
-        newAdvancePaid >= 1000
-          ? 'Payment successful! Booking confirmed.'
-          : 'Payment received. Pay ₹1000 or more to confirm booking.',
-      remainingAmount
+      message: 'Payment successful'
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // My Bookings
 export const getMyBookings = async (req, res) => {

@@ -3,6 +3,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 
+
 const router = express.Router();
 
 // Get all bookings (admin only)
